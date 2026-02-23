@@ -1,0 +1,11 @@
+# 排除所有實驗產生的圖片資料
+temp_data/
+extracted_dishes/
+time_series_crops/
+*.jpg
+*.png
+
+# 排除 Python 虛擬環境
+venv/
+__pycache__/
+.ipynb_checkpoints/

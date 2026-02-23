@@ -10,7 +10,7 @@ from datetime import datetime
 # ==========================================================
 CONFIG = {
     "interval_minutes": 1,        # 抓圖頻率 (分鐘)
-    "camera_id": 2,               # 修正：IPEVO V4K 在 /dev/video2
+    "camera_id": 0,               # 相機編號
     "frame_width": 1600,          # 相機解析度寬
     "frame_height": 1200,         # 相機解析度高
     "dish_width": 800,            # 輸出盤子影像寬 (像素)
@@ -30,7 +30,7 @@ CONFIG = {
 def print_ui_instructions():
     interval_sec = CONFIG["interval_minutes"] * 60
     print("\n" + "╔" + "═"*58 + "╗")
-    print(f"║ {'咸豐草實驗：五盤全自動縮時監測系統':^44} ║")
+    print(f"║ {'咸豐草實驗：五盤全自動縮時監測系統':^48} ║")
     print("╠" + "═"*58 + "╣")
     print(f"║ [ 運作模式 ] 每 {CONFIG['interval_minutes']} 分鐘 ({interval_sec} 秒) 自動擷取 ║")
     print(f"║ [ 解析度 ]   {CONFIG['frame_width']} x {CONFIG['frame_height']} {' ':<23} ║")
@@ -42,7 +42,6 @@ def print_ui_instructions():
     print("╠" + "═"*58 + "╣")
     print("║ [ 熱鍵 ] {' ':<47} ║")
     print("║  'q' 鍵 : 安全停止程式並關閉相機 {' ':<23} ║")
-    print("║  's' 鍵 : 立即手動執行存檔 {' ':<31} ║")
     print("╚" + "═"*58 + "╝\n")
 
 def run_auto_monitor():
@@ -52,14 +51,13 @@ def run_auto_monitor():
     output_dir = os.path.join(project_root, CONFIG["output_folder"])
     if not os.path.exists(output_dir): os.makedirs(output_dir)
 
-    # --- 2. 相機與 ArUco 初始化 (修正：CAP_V4L2) ---
-    cap = cv2.VideoCapture(CONFIG["camera_id"], cv2.CAP_V4L2)
+    # --- 2. 相機與 ArUco 初始化 ---
+    cap = cv2.VideoCapture(CONFIG["camera_id"])
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CONFIG["frame_width"])
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CONFIG["frame_height"])
 
-    # 修正：舊版 ArUco 語法
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-    parameters = aruco.DetectorParameters_create()
+    detector = aruco.ArucoDetector(aruco_dict, aruco.DetectorParameters())
 
     # 設定透視變換的目標頂點
     W, H = CONFIG["dish_width"], CONFIG["dish_height"]
@@ -74,20 +72,20 @@ def run_auto_monitor():
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("[錯誤] 無法讀取相機，請嘗試調整 camera_id 或重新插拔 V4K")
+                print("[錯誤] 無法讀取相機，請檢查連接")
                 break
 
             current_time = time.time()
             display_frame = frame.copy()
             
-            # 修正：舊版偵測語法
-            corners, ids, rejected = aruco.detectMarkers(frame, aruco_dict, parameters=parameters)
+            # 偵測 ArUco
+            corners, ids, rejected = detector.detectMarkers(frame)
             
             ready_to_save = {}
             status_list = []
 
             if ids is not None:
-                # 建立標記中心索引 (適配舊版 ids 格式)
+                # 建立標記中心索引
                 marker_centers = {int(mid[0]): np.mean(c[0], axis=0) for c, mid in zip(corners, ids)}
                 
                 for name, cfg in CONFIG["dishes"].items():
@@ -110,8 +108,6 @@ def run_auto_monitor():
                         status_list.append(f"{name}:OK")
                     else:
                         status_list.append(f"{name}:LOSS")
-            else:
-                for name in CONFIG["dishes"]: status_list.append(f"{name}:NO_MARK")
 
             # 定時抓圖邏輯
             elapsed = current_time - last_capture_time
@@ -121,15 +117,15 @@ def run_auto_monitor():
                     for name, img in ready_to_save.items():
                         cv2.imwrite(os.path.join(output_dir, f"{ts}_{name}.jpg"), img)
                     
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 定時擷取 | {' | '.join(status_list)}")
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 擷取成功 | {' | '.join(status_list)}")
                     last_capture_time = current_time
                 else:
-                    # 每 10 秒檢查一次狀態並提示
+                    # 如果時間到但標記不全，每 10 秒提醒一次
                     if int(current_time) % 10 == 0:
-                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 等待標記完全... {' | '.join(status_list)}")
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 等待標記中... {' | '.join(status_list)}")
 
-            # 顯示預覽視窗 (縮小預覽以適配螢幕)
-            preview = cv2.resize(display_frame, (1024, 768))
+            # 顯示預覽視窗
+            preview = cv2.resize(display_frame, (800, 600))
             countdown = int(max(0, interval_sec - elapsed))
             cv2.putText(preview, f"Next Auto-Save: {countdown}s", (20, 40), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -146,7 +142,7 @@ def run_auto_monitor():
                         cv2.imwrite(os.path.join(output_dir, f"{ts}_{name}.jpg"), img)
                     print(f"[{datetime.now().strftime('%H:%M:%S')}] 手動擷取成功 | {' | '.join(status_list)}")
                 else:
-                    print("警告：目前無完整盤子標記，無法手動存檔。")
+                    print("警告：畫面上沒有任何完整的盤子可供擷取。")
 
     finally:
         cap.release()

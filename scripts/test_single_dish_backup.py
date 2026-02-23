@@ -10,17 +10,18 @@ def run_calibrated_test():
     temp_data_dir = os.path.join(project_root, "temp_data")
     if not os.path.exists(temp_data_dir): os.makedirs(temp_data_dir)
 
-    # 修正：針對 Linux 使用 CAP_V4L2 驅動更穩定，若 0 無法開啟請嘗試改為 1
-    cap = cv2.VideoCapture(2, cv2.CAP_V4L2)
+    # 使用你測試成功的設定
+    cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1600)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1200)
 
-    # --- 2. ArUco 偵測器設定 (改為舊版相容語法) ---
+    # --- 2. ArUco 偵測器設定 ---
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-    # 修正：使用舊版參數建立方式
-    parameters = aruco.DetectorParameters_create()
+    parameters = aruco.DetectorParameters()
+    detector = aruco.ArucoDetector(aruco_dict, parameters)
 
     # --- 3. 輸出尺寸設定 (16cm : 11.5cm 比例) ---
+    # 設定 1cm = 50px，得出 800x575
     OUTPUT_W = 800
     OUTPUT_H = 575
     dst_pts = np.array([
@@ -30,18 +31,15 @@ def run_calibrated_test():
         [0, OUTPUT_H - 1]              # 左下
     ], dtype=np.float32)
 
-    print("--- 盤子校正測試模式 (舊版 OpenCV 相容版) ---")
+    print("--- 盤子校正測試模式 ---")
     print("請確保 ID 0-3 依順時針貼好：左上(0), 右上(1), 右下(2), 左下(3)")
     print("按 's' 儲存校正影像，按 'q' 退出")
 
     while True:
         ret, frame = cap.read()
-        if not ret: 
-            print("無法讀取相機影像，請檢查 camera_id 是否正確")
-            break
+        if not ret: break
 
-        # 修正：改回舊版偵測語法
-        corners, ids, rejected = aruco.detectMarkers(frame, aruco_dict, parameters=parameters)
+        corners, ids, rejected = detector.detectMarkers(frame)
 
         if ids is not None:
             # 畫出所有偵測到的 Marker
@@ -84,9 +82,7 @@ def run_calibrated_test():
         cv2.putText(frame, display_text, (30, 40), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         
-        # 顯示預覽視窗
-        preview = cv2.resize(frame, (800, 600))
-        cv2.imshow('Marker Calibration Feed', preview)
+        cv2.imshow('Marker Calibration Feed', frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):

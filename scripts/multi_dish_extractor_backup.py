@@ -11,15 +11,14 @@ def run_multi_dish_monitor():
     output_base_dir = os.path.join(project_root, "temp_data", "extracted_dishes")
     if not os.path.exists(output_base_dir): os.makedirs(output_base_dir)
 
-    # --- 2. 相機設定 (修正為 V4K 位址 2，並使用 V4L2 驅動) ---
-    cap = cv2.VideoCapture(2, cv2.CAP_V4L2)
+    # --- 2. 相機設定 (使用你測試成功的參數) ---
+    cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1600)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1200)
 
-    # --- 3. ArUco 偵測器設定 (修正為舊版相容語法) ---
+    # --- 3. ArUco 偵測器設定 ---
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-    # 修正：使用舊版參數建立方式
-    parameters = aruco.DetectorParameters_create()
+    detector = aruco.ArucoDetector(aruco_dict, aruco.DetectorParameters())
 
     # 輸出規格 (16cm : 11.5cm)
     W, H = 800, 575
@@ -34,24 +33,21 @@ def run_multi_dish_monitor():
         'Dish_E': {'ids': [16, 17, 18, 19], 'color': (0, 0, 255)}    # 紅
     }
 
-    print("--- 咸豐草五盤主畫面監測模式 (舊版 OpenCV 相容版) ---")
-    print("相機設定：IPEVO V4K (/dev/video2)")
+    print("--- 咸豐草五盤主畫面監測模式 ---")
     print("按 's' 儲存當下所有可見盤子，按 'q' 退出")
 
     while True:
         ret, frame = cap.read()
-        if not ret: 
-            print("錯誤：無法從 V4K 讀取影像，請檢查連線")
-            break
+        if not ret: break
 
-        # 修正：改回舊版偵測語法
-        corners, ids, rejected = aruco.detectMarkers(frame, aruco_dict, parameters=parameters)
+        # 偵測 ArUco
+        corners, ids, rejected = detector.detectMarkers(frame)
         
         # 建立當前的切割清單
         ready_to_save = {}
 
         if ids is not None:
-            # 修正：建立 ID 中心座標索引 (適配舊版 ids 格式)
+            # 建立 ID 中心座標索引
             marker_centers = {int(mid[0]): np.mean(c[0], axis=0) for c, mid in zip(corners, ids)}
             
             # 遍歷各盤子設定
@@ -77,17 +73,17 @@ def run_multi_dish_monitor():
                     warped = cv2.warpPerspective(frame, M, (W, H))
                     ready_to_save[name] = warped
                 else:
-                    # 如果不完整，顯示缺少的 ID 提示
+                    # 如果不完整，顯示缺少的 ID 提示 (選配)
                     missing = [tid for tid in target_ids if tid not in marker_centers]
+                    # 如果有偵測到該盤子的任一 Marker，才顯示缺漏訊息
                     if any(tid in marker_centers for tid in target_ids):
                         first_found = next(tid for tid in target_ids if tid in marker_centers)
                         fx, fy = marker_centers[first_found]
-                        cv2.putText(frame, f"{name} Miss:{missing}", (int(fx), int(fy+30)),
+                        cv2.putText(frame, f"{name} Missing: {missing}", (int(fx), int(fy+20)),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
-        # 顯示結果主畫面 (縮小預覽以符合螢幕)
-        preview = cv2.resize(frame, (1024, 768))
-        cv2.imshow('Main Monitor (Multi-Dish Trace)', preview)
+        # 顯示結果主畫面
+        cv2.imshow('Main Monitor (Multi-Dish Trace)', frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
@@ -98,7 +94,7 @@ def run_multi_dish_monitor():
                 for name, img in ready_to_save.items():
                     fname = f"{timestamp}_{name}.jpg"
                     cv2.imwrite(os.path.join(output_base_dir, fname), img)
-                print(f"[{timestamp}] 已儲存 {len(ready_to_save)} 個盤子影像於 {output_base_dir}")
+                print(f"[{timestamp}] 已儲存 {len(ready_to_save)} 個盤子影像")
             else:
                 print("警告：畫面上沒有任何完整的盤子可供切割。")
 
