@@ -3,6 +3,8 @@ import cv2.aruco as aruco
 import numpy as np
 import os
 
+
+
 def run_calibrated_test():
     # --- 1. 初始化與路徑設定 ---
     script_path = os.path.abspath(__file__)
@@ -10,8 +12,9 @@ def run_calibrated_test():
     temp_data_dir = os.path.join(project_root, "temp_data")
     if not os.path.exists(temp_data_dir): os.makedirs(temp_data_dir)
 
+    # 用v4l2-ctl --list-devices確認id
     # 修正：針對 Linux 使用 CAP_V4L2 驅動更穩定，若 0 無法開啟請嘗試改為 1
-    cap = cv2.VideoCapture(2, cv2.CAP_V4L2)
+    cap = cv2.VideoCapture(4, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1600)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1200)
 
