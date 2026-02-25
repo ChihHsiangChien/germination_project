@@ -1,0 +1,38 @@
+{
+    "experiment_name": "New_Experiment_Type_B",
+    "interval_minutes": 1,
+    "camera_id": "/dev/v4l/by-id/usb-IPEVO_Corp._IPEVO_V4K_01.00.00-video-index0",
+    "frame_width": 1600,
+    "frame_height": 1200,
+    "dish_width": 600,
+    "dish_height": 600,
+    "output_folder": "temp_data/extracted_dishes_exp_B",
+    "dishes": {
+        "Group_1": {
+            "ids": [
+                20,
+                21,
+                22,
+                23
+            ],
+            "color": [
+                255,
+                255,
+                255
+            ]
+        },
+        "Group_2": {
+            "ids": [
+                24,
+                25,
+                26,
+                27
+            ],
+            "color": [
+                100,
+                100,
+                255
+            ]
+        }
+    }
+}

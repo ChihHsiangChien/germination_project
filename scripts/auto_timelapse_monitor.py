@@ -3,30 +3,37 @@ import cv2.aruco as aruco
 import numpy as np
 import os
 import time
+import json
+import sys
 from datetime import datetime
 
 # ==========================================================
-# [ 集中參數設定區 ]
+# [ 腳本路徑與設定讀取 ]
 # ==========================================================
-CONFIG = {
-    "interval_minutes": 1,        # 抓圖頻率 (分鐘)
-    # 使用固定 ID 路徑，確保重開機後依然能鎖定 V4K
-    "camera_id": "/dev/v4l/by-id/usb-IPEVO_Corp._IPEVO_V4K_01.00.00-video-index0",
-    "frame_width": 1600,          # 相機解析度寬
-    "frame_height": 1200,         # 相機解析度高
-    "dish_width": 800,            # 輸出盤子影像寬 (像素)
-    "dish_height": 575,           # 輸出盤子影像高 (像素)
-    "output_folder": "temp_data/extracted_dishes",
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def load_config():
+    # 預設設定檔路徑
+    default_config = os.path.join(SCRIPT_DIR, "configs", "exp_default_16x11.json")
     
-    # 盤子 ID 與顏色配置 (0-3 為 A, 4-7 為 B...)
-    "dishes": {
-        'Dish_A': {'ids': [0, 1, 2, 3],    'color': (0, 255, 0)},   # 綠
-        'Dish_B': {'ids': [4, 5, 6, 7],    'color': (255, 255, 0)}, # 青
-        'Dish_C': {'ids': [8, 9, 10, 11],  'color': (255, 0, 255)}, # 紫
-        'Dish_D': {'ids': [12, 13, 14, 15], 'color': (0, 165, 255)}, # 橘
-        'Dish_E': {'ids': [16, 17, 18, 19], 'color': (0, 0, 255)}    # 紅
-    }
-}
+    # 檢查是否有命令列參數指定設定檔
+    config_path = sys.argv[1] if len(sys.argv) > 1 else default_config
+    
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(SCRIPT_DIR, config_path)
+
+    if not os.path.exists(config_path):
+        print(f"[錯誤] 找不到設定檔: {config_path}")
+        sys.exit(1)
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        conf = json.load(f)
+    
+    print(f"[系統] 已載入實驗設定: {conf.get('experiment_name', '未命名實驗')}")
+    print(f"[系統] 設定檔來源: {config_path}")
+    return conf
+
+CONFIG = load_config()
 
 def print_ui_instructions():
     interval_sec = CONFIG["interval_minutes"] * 60

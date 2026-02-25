@@ -3,37 +3,60 @@ import cv2.aruco as aruco
 import numpy as np
 import os
 import time
+import json
+import sys
+
+# ==========================================================
+# [ 腳本路徑與設定讀取 ]
+# ==========================================================
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def load_config():
+    # 預設設定檔路徑
+    default_config = os.path.join(SCRIPT_DIR, "configs", "exp_default_16x11.json")
+    
+    # 檢查是否有命令列參數指定設定檔
+    config_path = sys.argv[1] if len(sys.argv) > 1 else default_config
+    
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(SCRIPT_DIR, config_path)
+
+    if not os.path.exists(config_path):
+        print(f"[錯誤] 找不到設定檔: {config_path}")
+        sys.exit(1)
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        conf = json.load(f)
+    
+    print(f"[系統] 已載入實驗設定: {conf.get('experiment_name', '未命名實驗')}")
+    print(f"[系統] 設定檔來源: {config_path}")
+    return conf
 
 def run_multi_dish_monitor():
+    cfg_data = load_config()
+    
     # --- 1. 路徑與資料夾初始化 ---
-    script_path = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(script_path))
-    output_base_dir = os.path.join(project_root, "temp_data", "extracted_dishes")
+    project_root = os.path.dirname(SCRIPT_DIR)
+    output_base_dir = os.path.join(project_root, cfg_data["output_folder"])
     if not os.path.exists(output_base_dir): os.makedirs(output_base_dir)
 
-    # --- 2. 相機設定 (使用固定硬體 ID 路徑，確保永遠抓到 V4K) ---
-    v4k_path = "/dev/v4l/by-id/usb-IPEVO_Corp._IPEVO_V4K_01.00.00-video-index0"
+    # --- 2. 相機設定 (使用設定檔中的參數) ---
+    v4k_path = cfg_data["camera_id"]
     cap = cv2.VideoCapture(v4k_path, cv2.CAP_V4L2)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1600)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1200)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg_data["frame_width"])
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg_data["frame_height"])
 
-    # --- 3. ArUco 偵測器設定 (使用 OpenCV 4.13.0 新版語法) ---
+    # --- 3. ArUco 偵測器設定 ---
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
     parameters = aruco.DetectorParameters()
     detector = aruco.ArucoDetector(aruco_dict, parameters)
 
-    # 輸出規格 (16cm : 11.5cm)
-    W, H = 800, 575
+    # 輸出規格 (從設定檔讀取)
+    W, H = cfg_data["dish_width"], cfg_data["dish_height"]
     dst_pts = np.array([[0,0], [W-1,0], [W-1,H-1], [0,H-1]], dtype=np.float32)
 
-    # 定義 5 個盤子的 ID 與顯示顏色 (BGR)
-    dish_configs = {
-        'Dish_A': {'ids': [0, 1, 2, 3],    'color': (0, 255, 0)},   # 綠
-        'Dish_B': {'ids': [4, 5, 6, 7],    'color': (255, 255, 0)}, # 青
-        'Dish_C': {'ids': [8, 9, 10, 11],  'color': (255, 0, 255)}, # 紫
-        'Dish_D': {'ids': [12, 13, 14, 15], 'color': (0, 165, 255)}, # 橘
-        'Dish_E': {'ids': [16, 17, 18, 19], 'color': (0, 0, 255)}    # 紅
-    }
+    # 盤子配置
+    dish_configs = cfg_data["dishes"]
 
     print("--- 咸豐草五盤主畫面監測模式 (OpenCV 4.13.0 新版) ---")
     print(f"相機路徑: {v4k_path}")

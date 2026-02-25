@@ -2,39 +2,56 @@ import cv2
 import cv2.aruco as aruco
 import numpy as np
 import os
+import json
+import sys
 
+# ==========================================================
+# [ 腳本路徑與設定讀取 ]
+# ==========================================================
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def load_config():
+    # 預設設定檔路徑
+    default_config = os.path.join(SCRIPT_DIR, "configs", "exp_default_16x11.json")
+    
+    # 檢查是否有命令列參數指定設定檔
+    config_path = sys.argv[1] if len(sys.argv) > 1 else default_config
+    
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(SCRIPT_DIR, config_path)
+
+    if not os.path.exists(config_path):
+        print(f"[錯誤] 找不到設定檔: {config_path}")
+        sys.exit(1)
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        conf = json.load(f)
+    
+    print(f"[系統] 已載入實驗設定: {conf.get('experiment_name', '未命名實驗')}")
+    print(f"[系統] 設定檔來源: {config_path}")
+    return conf
 
 def run_calibrated_test():
-    # --- 1. 初始化與路徑設定 ---
-    script_path = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(script_path))
+    cfg_data = load_config()
+    
+    # --- 1. 初始化路徑 ---
+    project_root = os.path.dirname(SCRIPT_DIR)
     temp_data_dir = os.path.join(project_root, "temp_data")
     if not os.path.exists(temp_data_dir): os.makedirs(temp_data_dir)
 
-    # 用v4l2-ctl --list-devices確認id
-    # 修正：針對 Linux 使用 CAP_V4L2 驅動更穩定，若 0 無法開啟請嘗試改為 1
-    cap = cv2.VideoCapture(4, cv2.CAP_V4L2)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1600)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1200)
+    # --- 2. 相機設定 ---
+    v4k_path = cfg_data["camera_id"]
+    cap = cv2.VideoCapture(v4k_path, cv2.CAP_V4L2)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg_data["frame_width"])
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg_data["frame_height"])
 
-    # --- 2. ArUco 偵測器設定 (改為舊版相容語法) ---
+    # --- 3. ArUco 偵測器設定 (OpenCV 4.13.0+) ---
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-    # 修正：使用舊版參數建立方式
-    parameters = aruco.DetectorParameters_create()
+    parameters = aruco.DetectorParameters()
+    detector = aruco.ArucoDetector(aruco_dict, parameters)
 
-    # --- 3. 輸出尺寸設定 (16cm : 11.5cm 比例) ---
-    OUTPUT_W = 800
-    OUTPUT_H = 575
-    dst_pts = np.array([
-        [0, 0],                        # 左上
-        [OUTPUT_W - 1, 0],             # 右上
-        [OUTPUT_W - 1, OUTPUT_H - 1],  # 右下
-        [0, OUTPUT_H - 1]              # 左下
-    ], dtype=np.float32)
-
-    print("--- 盤子校正測試模式 (舊版 OpenCV 相容版) ---")
-    print("請確保 ID 0-3 依順時針貼好：左上(0), 右上(1), 右下(2), 左下(3)")
+    print("--- 單盤校正測試模式 (新版 OpenCV 語法) ---")
+    print("本工具會顯示設定檔中『第一個』找到的完整盤子，並顯示校正結果。")
     print("按 's' 儲存校正影像，按 'q' 退出")
 
     while True:
@@ -43,59 +60,59 @@ def run_calibrated_test():
             print("無法讀取相機影像，請檢查 camera_id 是否正確")
             break
 
-        # 修正：改回舊版偵測語法
-        corners, ids, rejected = aruco.detectMarkers(frame, aruco_dict, parameters=parameters)
+        # 偵測標記
+        corners, ids, rejected = detector.detectMarkers(frame)
+        
+        display_frame = frame.copy()
+        warped_dish = None
+        found_dish_name = ""
 
         if ids is not None:
-            # 畫出所有偵測到的 Marker
-            aruco.drawDetectedMarkers(frame, corners, ids)
-            
-            # 建立 ID 中心字典
-            marker_centers = {}
-            for i, marker_id in enumerate(ids):
-                marker_id_val = marker_id[0]
-                c = corners[i][0]
-                cx, cy = int(np.mean(c[:, 0])), int(np.mean(c[:, 1]))
-                marker_centers[marker_id_val] = (cx, cy)
+            # 建立 ID 中心索引
+            marker_centers = {int(mid[0]): np.mean(c[0], axis=0) for c, mid in zip(corners, ids)}
+            aruco.drawDetectedMarkers(display_frame, corners, ids)
 
-            # 檢查是否集齊 ID 0, 1, 2, 3 (一盤所需的四角)
-            target_ids = [0, 1, 2, 3]
-            if all(id_val in marker_centers for id_val in target_ids):
-                src_pts = np.array([
-                    marker_centers[0], 
-                    marker_centers[1], 
-                    marker_centers[2], 
-                    marker_centers[3]
-                ], dtype=np.float32)
+            for name, cfg in cfg_data["dishes"].items():
+                target_ids = cfg['ids']
+                color = cfg['color']
+                
+                if all(tid in marker_centers for tid in target_ids):
+                    src_pts = np.array([marker_centers[tid] for tid in target_ids], dtype=np.float32)
+                    
+                    # 取得該盤子應有的尺寸
+                    W = cfg.get("width", cfg_data["dish_width"])
+                    H = cfg.get("height", cfg_data["dish_height"])
+                    dst_pts = np.array([[0,0], [W-1,0], [W-1,H-1], [0,H-1]], dtype=np.float32)
 
-                # 計算透視變換
-                M = cv2.getPerspectiveTransform(src_pts, dst_pts)
-                warped_dish = cv2.warpPerspective(frame, M, (OUTPUT_W, OUTPUT_H))
-                
-                # 顯示校正後的盤子 (獨立視窗)
-                cv2.imshow('Calibrated Dish (16x11.5)', warped_dish)
-                
-                # 在主畫面上畫出盤子輪廓線
-                pts = src_pts.astype(np.int32).reshape((-1, 1, 2))
-                cv2.polylines(frame, [pts], True, (0, 0, 255), 3)
-                display_text = "Dish A Ready"
-            else:
-                display_text = f"Searching for IDs {target_ids}..."
+                    # 繪製框線
+                    pts_display = src_pts.astype(np.int32).reshape((-1, 1, 2))
+                    cv2.polylines(display_frame, [pts_display], True, color, 3)
+                    
+                    # 執行透視校正
+                    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+                    warped_dish = cv2.warpPerspective(frame, M, (W, H))
+                    found_dish_name = name
+                    
+                    # 僅顯示第一個找到的盤子
+                    break
+
+        if warped_dish is not None:
+            cv2.imshow(f'Test View: {found_dish_name}', warped_dish)
+            cv2.putText(display_frame, f"Testing: {found_dish_name}", (30, 40), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         else:
-            display_text = "No markers detected"
+            cv2.putText(display_frame, "Searching for dishes in config...", (30, 40), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-        cv2.putText(frame, display_text, (30, 40), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        
-        # 顯示預覽視窗
-        preview = cv2.resize(frame, (800, 600))
-        cv2.imshow('Marker Calibration Feed', preview)
+        # 顯示全景預覽
+        preview = cv2.resize(display_frame, (800, 600))
+        cv2.imshow('Main Camera Feed', preview)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-        elif key == ord('s') and 'warped_dish' in locals():
-            save_path = os.path.join(temp_data_dir, "test_rect_dish_A.jpg")
+        elif key == ord('s') and warped_dish is not None:
+            save_path = os.path.join(temp_data_dir, f"test_calibration_{found_dish_name}.jpg")
             cv2.imwrite(save_path, warped_dish)
             print(f"校正影像已儲存：{save_path}")
 

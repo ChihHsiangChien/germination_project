@@ -14,6 +14,7 @@
 在實驗開始前，需準備好定位用的標記。
 *   `gen_markers_pdf.py`: 自動生成含 20 個 ArUco 標記 (ID 0-19) 的 A4 PDF，直接列印即可使用。
 *   `check_marker_ids.py`: 開啟相機即時檢測畫面上所有的 ArUco ID，用於確認列印品質與相機焦距。
+*   `find_camera.py`: **[新工具]** 掃描並開啟系統中所有的相機 Index，協助確認 `camera_id` 該填什麼。
 
 ### 2. 種子位置與實驗設計 (`scripts/1_setSeedsPosition/`)
 *   `generate_staggered_map.py`: 生成 30 顆種子的「交錯式」排列圖與 `map_dish_X.csv` 紀錄表。
@@ -21,12 +22,17 @@
     *   **黑空心**：未處理組 (Untreated)
 
 ### 3. 五盤全自動監測系統
-本系統的核心監控邏輯。
-*   `auto_timelapse_monitor.py`: **[最常用]** 每分鐘自動執行 5 盤定位、校正、切割與存擋。
+本系統的核心監控邏輯，支援載入不同實驗的設定檔。
+*   `auto_timelapse_monitor.py`: **[最常用]** 每分鐘自動執行多盤定位、校正、切割與存擋。支援參數指定設定檔。
 *   `multi_dish_extractor.py`: 手動版監測工具，僅在按 `s` 時儲存當下可見的盤子影像。
 *   `test_single_dish.py`: 專門針對 Dish_A (ID 0-3) 進行校正測試的小工具。
 
-### 4. 後端種子切割處理
+### 4. 實驗設定檔系統 (`scripts/configs/`)
+為了支援不同規格（長寬比、Marker ID）的盤子，系統採用 JSON 設定檔：
+*   `exp_default_16x11.json`: **預設設定**，適用於標準 16:11.5 比例的長方形盤子。
+*   `template_new_exp.json`: 新實驗範本，可用於設定不同的寬高（如正方形盤子）與 Marker ID 組。
+
+### 5. 後端種子切割處理
 *   `master_seed_processor.py`: **[重要]** 讀取監測影像，讓使用者手動微調種子精準座標，並一次性對所有歷史影像進行「批次切割」。
 
 ## ⚙️ 黃金參數 (Current Master Config)
@@ -50,13 +56,21 @@
 
 ### 第一階段：硬體佈署
 1.  列印 `markers/` 下的標記 PDF 並裁切貼至培養皿底部邊緣（ID 0-3 對應左上、右上、右下、左下）。
-2.  執行 `python3 scripts/0_markers/check_marker_ids.py` 確認所有盤子都能被辨識。
-3.  執行 `python3 scripts/1_setSeedsPosition/generate_staggered_map.py` 參考圖示擺放種子並記錄 Treatment。
+2.  **確認相機 ID**：
+    *   **Linux/Pi**：執行 `ls /dev/v4l/by-id/` 尋找含 `V4K` 字樣的長路徑（最穩定）。
+    *   **Windows/通用**：執行 `python3 scripts/find_camera.py` 查看 V4K 對應的 Index (如 0, 1...)。
+    *   將找到的 ID 填入 `scripts/configs/` 對應的 JSON 設定檔中。
+3.  執行 `python3 scripts/0_markers/check_marker_ids.py` 確認所有盤子都能被辨識。
+4.  執行 `python3 scripts/1_setSeedsPosition/generate_staggered_map.py` 參考圖示擺放種子並記錄 Treatment。
 
 ### 第二階段：自動縮時紀錄
-啟動監控，系統會自動在 `temp_data/extracted_dishes` 下產生影像。
+啟動監控，系統會自動在 `temp_data` 下產生影像（路徑由設定檔決定）。
 ```bash
+# 方式 A：使用預設設定 (16x11 規格)
 python3 scripts/auto_timelapse_monitor.py
+
+# 方式 B：指定特定實驗設定檔 (例如新規格盤子)
+python3 scripts/auto_timelapse_monitor.py configs/my_new_experiment.json
 ```
 *   按 `s` 手動儲存，按 `q` 安全退出。
 
@@ -70,4 +84,5 @@ python3 scripts/master_seed_processor.py
 
 ## ⚠️ 注意事項
 1. **光源一致性**：若環境光線大幅改變，需重新透過 `master_seed_processor.py` 調整 threshold。
-2. **資料備份**：由於 `temp_data/` 已被 `.gitignore` 排除，請務必手動將生成的 `time_series_crops` 備份至外部硬碟。
+2. **設定檔優先**：若要進行不同比例的實驗，請務必先在 `scripts/configs/` 建立對應的 JSON，避免影像長寬比被錯誤校正（擠壓或拉伸）。
+3. **資料備份**：由於 `temp_data/` 已被 `.gitignore` 排除，請務必手動將生成的結果備份至外部硬碟。
