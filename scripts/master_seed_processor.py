@@ -3,6 +3,7 @@ import numpy as np
 import os
 import glob
 import json
+import sys
 
 CONFIG = {
     "threshold": 137,
@@ -37,7 +38,17 @@ def save_config(dish_label, current_params, project_root):
         json.dump(current_params, f, indent=4)
     print(f"\n[系統] 參數檔已更新: {config_path}")
 
-def run_master_processor(image_name, dish_label='Dish_A'):
+def run_master_processor(image_name, dish_label=None):
+    # 如果沒有傳入 label，從檔名解析 (假設格式: YYYYMMDD_HHMMSS_DishLabel.jpg)
+    name_no_ext = os.path.splitext(image_name)[0]
+    parts = name_no_ext.split('_')
+    
+    if dish_label is None:
+        dish_label = "_".join(parts[2:]) if len(parts) >= 3 else "Unknown"
+    
+    # 紀錄基準時間點 (格式: YYYYMMDD_HHMMSS)
+    start_timestamp = f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else "00000000_000000"
+
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     image_path = os.path.join(project_root, "temp_data", "extracted_dishes", image_name)
     
@@ -136,12 +147,23 @@ def run_master_processor(image_name, dish_label='Dish_A'):
                 # 自動批次處理邏輯
                 input_dir = os.path.join(project_root, "temp_data", "extracted_dishes")
                 output_base = os.path.join(project_root, "temp_data", "time_series_crops", dish_label)
-                images = sorted(glob.glob(os.path.join(input_dir, f"*{dish_label}.jpg")))
                 
-                for img_path in images:
+                # 只過濾該 Dish，且時間在基準點之後的檔案
+                all_images = sorted(glob.glob(os.path.join(input_dir, f"*{dish_label}.jpg")))
+                images_to_process = []
+                for img_path in all_images:
                     base_name = os.path.basename(img_path)
-                    parts = base_name.split('_')
-                    timestamp = f"{parts[0]}_{parts[1]}"
+                    parts_current = base_name.split('_')
+                    current_timestamp = f"{parts_current[0]}_{parts_current[1]}"
+                    if current_timestamp >= start_timestamp:
+                        images_to_process.append(img_path)
+
+                print(f"[系統] 發現 {len(all_images)} 個該 Dish 的檔案，其中 {len(images_to_process)} 個在基準時間之後。")
+
+                for img_path in images_to_process:
+                    base_name = os.path.basename(img_path)
+                    parts_current = base_name.split('_')
+                    timestamp = f"{parts_current[0]}_{parts_current[1]}"
                     batch_img = cv2.imread(img_path)
                     
                     for i, (cx, cy) in enumerate(master_centers):
@@ -160,5 +182,13 @@ def run_master_processor(image_name, dish_label='Dish_A'):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    # 使用 30 顆最全的那張圖作為 Master 基準
-    run_master_processor("20260222_191223_Dish_A.jpg", "Dish_A")
+    # 用法: python scripts/master_seed_processor.py [image_name]
+    # 如果不帶參數，則使用預設的範例圖
+    if len(sys.argv) > 1:
+        target_image = sys.argv[1]
+    else:
+        target_image = "20260222_191223_Dish_A.jpg"
+        print(f"[提示] 未提供影像檔名，使用預設值: {target_image}")
+        print(">> 用法範例: python scripts/master_seed_processor.py 20260222_191223_Dish_A.jpg")
+
+    run_master_processor(target_image)

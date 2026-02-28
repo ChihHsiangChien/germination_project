@@ -5,7 +5,9 @@
 ## 🛠 目前功能
 * **多盤自動擷取**：透過 ArUco Marker (DICT_4X4_50) 定位 5 個培養皿，並自動執行透視校正。
 * **定時縮時攝影**：支援每分鐘自動擷取一次 5 盤影像。
-* **Master 座標映射**：以單一影像為基準鎖定 30 顆種子座標，解決動態偵測造成的種子身分錯置問題。
+* **Master 座標映射**：以單一影像為基準鎖定 30 顆種子座標，並自動過濾同盤且晚於基準點的影像進行批次切割。
+* **每日成長矩陣生成**：自動將種子縮時影像排列為固定時間網格 (10 分鐘一格) 的橫式佈局，便於跨日期對照發芽關鍵點。
+* **PDF 實驗報告導出**：按 Dish 將所有種子的每日成長矩陣編譯成 PDF 報告，方便系統性查閱。
 * **參數視覺化調校**：整合 OpenCV Slider 介面，可動態調整 Threshold 與 ROI 邊距。
 
 ## 📁 目錄結構與腳本說明
@@ -33,7 +35,14 @@
 *   `template_new_exp.json`: 新實驗範本，可用於設定不同的寬高（如正方形盤子）與 Marker ID 組。
 
 ### 5. 後端種子切割處理
-*   `master_seed_processor.py`: **[重要]** 讀取監測影像，讓使用者手動微調種子精準座標，並一次性對所有歷史影像進行「批次切割」。
+*   `master_seed_processor.py`: **[重要]** 讀取監測影像，讓使用者手動微調種子精準座標。支援命令列傳入特定影像，並依據該影像時間自動過濾後續圖檔進行批次處理。
+
+### 6. 視覺化分析與對照
+*   `daily_seed_montage_generator.py`: 讀取切割後的種子序列，按日期生成 18x8 (10 分鐘一格) 的橫式成長大圖，確保特定時間出現在固定座標。
+*   `seed_lifecycle_montage.py`: **[新功能]** 將單一種子的所有歷史影像合稱為一張長時序大圖，支援透過變數設定起訖時間，方便觀察單一粒種子的完整發芽行為。
+
+### 7. 自動化報告生成
+*   `montages_to_pdf.py`: **[新功能]** 將 `daily_montages/` 下的大圖按 Dish 進行封裝，依 seed 編號依序存入單一 PDF，作為最終實驗報告。
 
 ## ⚙️ 黃金參數 (Current Master Config)
 目前針對 Dish_A 調校出的最佳參數如下：
@@ -75,12 +84,37 @@ python3 scripts/auto_timelapse_monitor.py configs/my_new_experiment.json
 *   按 `s` 手動儲存，按 `q` 安全退出。
 
 ### 第三階段：鎖定座標與批次切割
-實驗結束後（或過程中），利用表現最好的一張盤面圖作為基準：
+當種子位置可能因操作或震動位移時，可針對該時間點後的影像重新鎖定座標：
 ```bash
-python3 scripts/master_seed_processor.py
+# 指定特定的基準影像 (系統會自動過濾該時間點之後的影像)
+python3 scripts/master_seed_processor.py 20260228_082402_Dish_A.jpg
 ```
 *   調整 Slider 直到 30 顆種子都被綠框包覆且編號正確。
-*   按 `s` 儲存座標，系統將自動處理該盤子的所有歷史影像，並將 30 顆種子的序列影像存於 `temp_data/time_series_crops/`。
+*   按 `s` 儲存座標並啟動批次處理，影像將存於 `temp_data/time_series_crops/{Dish}/{Seed}/`。
+
+### 第四階段：生成每日成長矩陣
+為了快速檢查發芽狀況，生成固定網格的大圖：
+```bash
+python3 scripts/daily_seed_montage_generator.py
+```
+*   生成的大圖位於 `temp_data/daily_montages/`。
+*   **佈局特點**：橫式 18x8 矩陣，每格代表 10 分鐘，每一橫列代表 3 小時。相同時間點永遠位於相同座標。
+
+### 第五階段：進階生命週期分析
+若需觀察單一種子跨日期的連續變化：
+```bash
+python3 scripts/seed_lifecycle_montage.py
+```
+*   **自訂範圍**：請修改腳本內的 `FILTER_CONFIG` 變數來調整時間區間。
+*   生成的大圖位於 `temp_data/lifecycle_montages/`。
+
+### 第六階段：彙整 PDF 報告
+將所有視覺化結果整合為方便閱讀的 PDF：
+```bash
+python3 scripts/montages_to_pdf.py
+```
+*   生成的 PDF 位於 `temp_data/reports_pdf/`。
+*   每個 Dish 會有一個專屬 PDF，依 seed_01 ~ seed_30 順序排列。
 
 ## ⚠️ 注意事項
 1. **光源一致性**：若環境光線大幅改變，需重新透過 `master_seed_processor.py` 調整 threshold。

@@ -1,0 +1,10 @@
+{
+    "threshold": 98,
+    "min_area": 12,
+    "max_area": 347,
+    "margin_top": 73,
+    "margin_bottom": 142,
+    "margin_left": 139,
+    "margin_right": 73,
+    "crop_size": 32
+}
