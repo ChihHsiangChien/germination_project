@@ -1,0 +1,37 @@
+============================================================
+      咸豐草瘦果發芽實驗：全方位統計分析報表
+============================================================
+
+[一] 描述性統計 (最終發芽率)
+  treatment status.count status.total status.percent
+1   Treated           46           60          76.67
+2 Untreated           42           60          70.00
+
+[二] 發芽動力學關鍵指標
+1. 50% 發芽時間 (T50):
+$quantile
+                          50
+treatment=Treated   108.5417
+treatment=Untreated 124.9083
+
+$lower
+                          50
+treatment=Treated   102.0833
+treatment=Untreated 107.0333
+
+$upper
+                          50
+treatment=Treated   123.6000
+treatment=Untreated 133.3833
+
+
+2. 發芽速率指數 (GRI, 1/hr x100):
+   - 處理組: 51.9801 
+   - 對照組: 45.9825 
+
+[三] 顯著性檢定與風險模型
+1. Log-rank Test (曲線差異): P = 0.3392 
+   結論: >>> 無顯著差異 (處理影響不明顯) <<< 
+
+2. Cox Hazard Ratio (風險比): 0.8077 
+   (處理組發芽勝算約為對照組的 1.24 倍)
