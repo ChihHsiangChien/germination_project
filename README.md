@@ -50,6 +50,12 @@
 *   `daily_cell_montage_generator.py`: **[新功能]** 讀取切割好的 `cell` 照片序列，按日期生成 24x12 (5 分鐘一格) 的每日成長大圖。
 *   `cell_montages_to_pdf.py`: **[新功能]** 將每日出苗大圖封裝成 PDF 以供人工進行發芽判定。
 
+### 9. 統計分析與數據報告 (R Scripts)
+專案內建專業的 R 語言分析腳本，負責將 `data.xlsx` 中的觀測紀錄轉化為生存模型評估：
+*   `analyze_germination.R`: 針對無阻力發芽實驗，計算 Kaplan-Meier 存活分析與 $T_{50}$、MGT 等指標。
+*   `analyze_soil_emergence.R`: **[新功能]** 針對覆土實驗，算出土率(FEP)、出苗速率指數(ERI) 與 平均出苗時間(MET)。
+*   `compare_experiments.R`: **[新功能]** 核心交叉比對工具。透過繪出「發芽潛力 vs 破土實力」的疊加曲線，精準解讀 1cm 覆土帶來的「出土延遲（水平落差）」及「致死率（垂直落差）」。
+
 ## ⚙️ 黃金參數 (Current Master Config)
 目前針對 Dish_A 調校出的最佳參數如下：
 
@@ -127,6 +133,20 @@ python3 scripts/montages_to_pdf.py
 1. **網格切割**：執行 `python3 scripts/grid_cell_processor.py` 進行 4x3 格線裁切。
 2. **單日大圖生成**：執行 `python3 scripts/daily_cell_montage_generator.py` 生成排版良好的每日觀察圖 (`temp_data/exp2_soil_tray/daily_montages/`)。
 3. **輸出 PDF 報告**：執行 `python3 scripts/cell_montages_to_pdf.py`，會輸出每穴孔連續變化的多頁 PDF (`temp_data/exp2_soil_tray/reports_pdf/`)，供人工進行破土時間判定。
+
+### 第八階段：統計分析與假設檢定
+當您完成 PDF 判讀並記錄在 `data.xlsx` 後，即可一鍵生成科展圖表：
+```bash
+# 實驗一分析 (無阻力發芽)
+Rscript scripts/analyze_germination.R
+
+# 實驗二分析 (1cm覆土出苗)
+Rscript scripts/analyze_soil_emergence.R
+
+# 雙重實驗交叉比對 (發芽潛力 vs 覆土出苗)
+Rscript scripts/compare_experiments.R
+```
+*   高解析度圖表 (`.png`) 與文字結論報表 (`.txt`) 將自動存放於 `temp_data/` 對應的分析資料夾中。
 
 ## ⚠️ 注意事項
 1. **光源一致性**：若環境光線大幅改變，需重新透過 `master_seed_processor.py` 調整 threshold。
