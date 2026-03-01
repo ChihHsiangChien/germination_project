@@ -44,6 +44,12 @@
 ### 7. 自動化報告生成
 *   `montages_to_pdf.py`: **[新功能]** 將 `daily_montages/` 下的大圖按 Dish 進行封裝，依 seed 編號依序存入單一 PDF，作為最終實驗報告。
 
+### 8. 覆土出苗實驗專用 (Experiment 2: Soil Tray)
+這組腳本專為了有覆土、需要 4x3 網格固定切割的試驗設計，資料儲存於 `temp_data/exp2_soil_tray/`：
+*   `grid_cell_processor.py`: **[新功能]** 讀取透視圖，透過 GUI 調整 4x3 穴孔網格，過濾塑膠隔板與邊界，將影像一鍵批次切割成 12 個穴位的縮時序列 (`cell_01` ~ `cell_12`)。
+*   `daily_cell_montage_generator.py`: **[新功能]** 讀取切割好的 `cell` 照片序列，按日期生成 24x12 (5 分鐘一格) 的每日成長大圖。
+*   `cell_montages_to_pdf.py`: **[新功能]** 將每日出苗大圖封裝成 PDF 以供人工進行發芽判定。
+
 ## ⚙️ 黃金參數 (Current Master Config)
 目前針對 Dish_A 調校出的最佳參數如下：
 
@@ -113,10 +119,20 @@ python3 scripts/seed_lifecycle_montage.py
 ```bash
 python3 scripts/montages_to_pdf.py
 ```
-*   生成的 PDF 位於 `temp_data/reports_pdf/`。
+*   生成的 PDF 位於 `temp_data/exp1_dish/reports_pdf/`。
 *   每個 Dish 會有一個專屬 PDF，依 seed_01 ~ seed_30 順序排列。
+
+### 第七階段：覆土實驗分析 (Experiment 2: Soil Tray)
+若是進行含有土壤的育苗盆實驗，請替換上述第三、四、五階段操作：
+1. **網格切割**：執行 `python3 scripts/grid_cell_processor.py` 進行 4x3 格線裁切。
+2. **單日大圖生成**：執行 `python3 scripts/daily_cell_montage_generator.py` 生成排版良好的每日觀察圖 (`temp_data/exp2_soil_tray/daily_montages/`)。
+3. **輸出 PDF 報告**：執行 `python3 scripts/cell_montages_to_pdf.py`，會輸出每穴孔連續變化的多頁 PDF (`temp_data/exp2_soil_tray/reports_pdf/`)，供人工進行破土時間判定。
 
 ## ⚠️ 注意事項
 1. **光源一致性**：若環境光線大幅改變，需重新透過 `master_seed_processor.py` 調整 threshold。
 2. **設定檔優先**：若要進行不同比例的實驗，請務必先在 `scripts/configs/` 建立對應的 JSON，避免影像長寬比被錯誤校正（擠壓或拉伸）。
 3. **資料備份**：由於 `temp_data/` 已被 `.gitignore` 排除，請務必手動將生成的結果備份至外部硬碟。
+
+
+土壤組遠端拉回
+rsync -avz --progress -e "ssh -J user@IP1" student@IP2:~/germination_project/temp_data/extracted_dishes/ /home/pancala/Documents/germination_project/temp_data/exp2_soil_tray/extracted_dishes/

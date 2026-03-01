@@ -1,8 +1,8 @@
 {
-    "threshold": 96,
+    "threshold": 85,
     "min_area": 59,
     "max_area": 347,
-    "margin_top": 84,
+    "margin_top": 92,
     "margin_bottom": 95,
     "margin_left": 90,
     "margin_right": 127,

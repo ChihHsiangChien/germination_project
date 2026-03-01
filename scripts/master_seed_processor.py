@@ -50,7 +50,7 @@ def run_master_processor(image_name, dish_label=None):
     start_timestamp = f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else "00000000_000000"
 
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    image_path = os.path.join(project_root, "temp_data", "extracted_dishes", image_name)
+    image_path = os.path.join(project_root, "temp_data", "exp1_dish", "extracted_dishes", image_name)
     
     img = cv2.imread(image_path)
     if img is None: 
@@ -145,8 +145,8 @@ def run_master_processor(image_name, dish_label=None):
                 save_config(dish_label, params, project_root)
                 
                 # 自動批次處理邏輯
-                input_dir = os.path.join(project_root, "temp_data", "extracted_dishes")
-                output_base = os.path.join(project_root, "temp_data", "time_series_crops", dish_label)
+                input_dir = os.path.join(project_root, "temp_data", "exp1_dish", "extracted_dishes")
+                output_base = os.path.join(project_root, "temp_data", "exp1_dish", "time_series_crops", dish_label)
                 
                 # 只過濾該 Dish，且時間在基準點之後的檔案
                 all_images = sorted(glob.glob(os.path.join(input_dir, f"*{dish_label}.jpg")))

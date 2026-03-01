@@ -24,8 +24,8 @@ FILTER_CONFIG = {
 }
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INPUT_BASE_DIR = os.path.join(PROJECT_ROOT, "temp_data", "time_series_crops")
-OUTPUT_BASE_DIR = os.path.join(PROJECT_ROOT, "temp_data", "lifecycle_montages")
+INPUT_BASE_DIR = os.path.join(PROJECT_ROOT, "temp_data", "exp1_dish", "time_series_crops")
+OUTPUT_BASE_DIR = os.path.join(PROJECT_ROOT, "temp_data", "exp1_dish", "lifecycle_montages")
 
 # 字型路徑 (Linux 普通路徑)
 FONT_PATHS = ["/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]

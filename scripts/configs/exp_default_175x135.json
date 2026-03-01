@@ -1,0 +1,17 @@
+{
+    "experiment_name": "Standard_Wide_Dish_17.5x13.5",
+    "interval_minutes": 1,
+    "camera_id": "/dev/v4l/by-id/usb-IPEVO_Corp._IPEVO_V4K_01.00.00-video-index0",
+    "frame_width": 1600,
+    "frame_height": 1200,
+    "dish_width": 875,
+    "dish_height": 675,
+    "output_folder": "temp_data/exp2_soil_tray/extracted_dishes",
+    "dishes": {
+        "Dish_A": { "ids": [0, 1, 2, 3], "color": [0, 255, 0] },
+        "Dish_B": { "ids": [4, 5, 6, 7], "color": [255, 255, 0] },
+        "Dish_C": { "ids": [8, 9, 10, 11], "color": [255, 0, 255] },
+        "Dish_D": { "ids": [12, 13, 14, 15], "color": [0, 165, 255] },
+        "Dish_E": { "ids": [16, 17, 18, 19], "color": [0, 0, 255] }
+    }
+}

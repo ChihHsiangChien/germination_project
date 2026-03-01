@@ -6,8 +6,8 @@ from PIL import Image
 # [ 設定參數 ]
 # ==========================================================
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INPUT_BASE_DIR = os.path.join(PROJECT_ROOT, "temp_data", "daily_montages")
-OUTPUT_PDF_DIR = os.path.join(PROJECT_ROOT, "temp_data", "reports_pdf")
+INPUT_BASE_DIR = os.path.join(PROJECT_ROOT, "temp_data", "exp1_dish", "daily_montages")
+OUTPUT_PDF_DIR = os.path.join(PROJECT_ROOT, "temp_data", "exp1_dish", "reports_pdf")
 
 def generate_dish_pdf(dish_name):
     dish_path = os.path.join(INPUT_BASE_DIR, dish_name)

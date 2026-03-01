@@ -15,3 +15,14 @@ time_series_crops/
 venv/
 __pycache__/
 .ipynb_checkpoints/
+
+# 忽略實驗自動生成的圖表與文字報告 (避免塞爆 git)
+daily_montages/
+lifecycle_montages/
+reports_pdf/
+analysis_results/
+cross_analysis/
+
+# 忽略所有的 PDF 報告 (除了自動生成的 ArUco 標記保留)
+*.pdf
+!scripts/0_markers/*.pdf

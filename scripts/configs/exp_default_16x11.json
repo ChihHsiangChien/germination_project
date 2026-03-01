@@ -6,7 +6,7 @@
     "frame_height": 1200,
     "dish_width": 800,
     "dish_height": 575,
-    "output_folder": "temp_data/extracted_dishes",
+    "output_folder": "temp_data/exp1_dish/extracted_dishes",
     "dishes": {
         "Dish_A": {"ids": [0, 1, 2, 3], "color": [0, 255, 0]},
         "Dish_B": {"ids": [4, 5, 6, 7], "color": [255, 255, 0]},
